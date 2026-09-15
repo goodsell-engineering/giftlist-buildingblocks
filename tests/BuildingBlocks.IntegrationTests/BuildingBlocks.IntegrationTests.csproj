@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <!-- GL-57: the request/reply bridge is only provable against a real broker (its own
+         CONVENTIONS.md "Testing" rule) — Testcontainers starts one real RabbitMQ per assembly rather
+         than substituting an in-memory transport, which cannot enforce Rebus's own routing,
+         serialization or header propagation. -->
+    <PackageReference Include="Testcontainers.RabbitMq" Version="4.14.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <!-- GL-80: QueueCleanupTests talks to the broker directly (ConnectionFactory, IConnection)
+         to declare and passively-probe queues independently of QueueCleanup itself, so this
+         project's own source touches RabbitMQ.Client types again. Declared explicitly rather
+         than relying on the transitive pull through BuildingBlocks.Testing's ProjectReference,
+         matching the precedent BuildingBlocks.Testing.csproj itself records for GL-70. -->
+    <PackageReference Include="RabbitMQ.Client" Version="7.1.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BuildingBlocks\BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks.Infrastructure\BuildingBlocks.Infrastructure.csproj" />
+    <!-- GL-75: shared QueueCleanup, rather than the fourth copy of it. -->
+    <ProjectReference Include="..\..\src\BuildingBlocks.Testing\BuildingBlocks.Testing.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- GL-75: shared test-support helpers, consumed by every service repo's *.IntegrationTests
+       project (BuildingBlocks, GiftLists, Identity, Gateway). Source shared across repo
+       boundaries, so it needs a packaging story even though it is not a *.Contracts package —
+       which is why GL-25 packs all three of BuildingBlocks, BuildingBlocks.Infrastructure and
+       BuildingBlocks.Testing, not just the contracts. -->
+
+  <!-- GL-25/GL-75: packed to the local folder feed and consumed by every service repo as a
+       PackageReference. After the seven-repo split there is no relative path from a service to
+       this project, so a ProjectReference is not merely discouraged here, it is impossible
+       (ARCHITECTURE.md "Packaging: local feed").
+
+       Version 0.1.0, not 1.0.0, and the reason is not taste: nuget.org already serves an
+       unrelated package with the id BuildingBlocks at exactly 1.0.0, and Identity.Contracts at
+       1.0.14. A consumer configured with both nuget.org and the folder feed can satisfy an exact
+       version from either source, so an id+version pair that exists upstream is a live risk of
+       silently restoring a stranger's assembly. 0.1.0 exists on neither id upstream. The real
+       fix is packageSourceMapping in each repo's nuget.config, which is GL-26's file — see this
+       repo's README. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>BuildingBlocks.Testing</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>goodsell-engineering</Authors>
+    <Description>GiftList shared test-support helpers for every service's IntegrationTests suite. Not production code (CONVENTIONS.md "Testing").</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The only thing this project needs: a real AMQP client to talk to the broker directly for
+         test cleanup, the same way BuildingBlocks.IntegrationTests and (GL-70) Gateway's own
+         test project already declared explicitly rather than relying on a transitive pull. -->
+    <PackageReference Include="RabbitMQ.Client" Version="7.1.2" />
+    <!-- GL-93: ReliableReadiness replaces the Mongo/RabbitMq builders' default wait strategies,
+         so this project needs the same Testcontainers packages every *.IntegrationTests project
+         already declares directly (see e.g. Identity.IntegrationTests.csproj) — not a transitive
+         pull, matching this file's own precedent above for RabbitMQ.Client. -->
+    <PackageReference Include="Testcontainers" Version="4.14.0" />
+    <PackageReference Include="Testcontainers.MongoDb" Version="4.14.0" />
+    <PackageReference Include="Testcontainers.RabbitMq" Version="4.14.0" />
+  </ItemGroup>
+
+</Project>

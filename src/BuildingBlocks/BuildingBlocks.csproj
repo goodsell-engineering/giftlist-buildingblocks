@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- GL-25/GL-75: packed to the local folder feed and consumed by every service repo as a
+       PackageReference. After the seven-repo split there is no relative path from a service to
+       this project, so a ProjectReference is not merely discouraged here, it is impossible
+       (ARCHITECTURE.md "Packaging: local feed").
+
+       Version 0.1.0, not 1.0.0, and the reason is not taste: nuget.org already serves an
+       unrelated package with the id BuildingBlocks at exactly 1.0.0, and Identity.Contracts at
+       1.0.14. A consumer configured with both nuget.org and the folder feed can satisfy an exact
+       version from either source, so an id+version pair that exists upstream is a live risk of
+       silently restoring a stranger's assembly. 0.1.0 exists on neither id upstream. The real
+       fix is packageSourceMapping in each repo's nuget.config, which is GL-26's file — see this
+       repo's README. -->
+
+  <!-- No PackageReference and no ProjectReference here, ever: CONVENTIONS.md "Project reference
+       graph" makes this assembly BCL-only and DependencyRuleTests asserts that on the restored
+       closure. The items below are properties, not references, so they do not touch it. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>BuildingBlocks</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>goodsell-engineering</Authors>
+    <Description>GiftList shared kernel: Result&lt;T&gt;, Error, ErrorKind. BCL-only.</Description>
+  </PropertyGroup>
+
+</Project>

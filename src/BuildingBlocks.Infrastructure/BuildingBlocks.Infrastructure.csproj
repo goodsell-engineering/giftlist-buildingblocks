@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Keeps the existing BuildingBlocks.Messaging.*/Persistence/HealthChecks namespaces from
+         the pre-split single assembly, so no consuming `using` has to change. -->
+    <RootNamespace>BuildingBlocks</RootNamespace>
+  </PropertyGroup>
+
+  <!-- GL-25/GL-75: packed to the local folder feed and consumed by every service repo as a
+       PackageReference. After the seven-repo split there is no relative path from a service to
+       this project, so a ProjectReference is not merely discouraged here, it is impossible
+       (ARCHITECTURE.md "Packaging: local feed").
+
+       Version 0.1.0, not 1.0.0, and the reason is not taste: nuget.org already serves an
+       unrelated package with the id BuildingBlocks at exactly 1.0.0, and Identity.Contracts at
+       1.0.14. A consumer configured with both nuget.org and the folder feed can satisfy an exact
+       version from either source, so an id+version pair that exists upstream is a live risk of
+       silently restoring a stranger's assembly. 0.1.0 exists on neither id upstream. The real
+       fix is packageSourceMapping in each repo's nuget.config, which is GL-26's file — see this
+       repo's README. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>BuildingBlocks.Infrastructure</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>goodsell-engineering</Authors>
+    <Description>GiftList shared infrastructure: Rebus setup and pipeline steps, the request/reply registry, Mongo conventions, health-check helpers.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Rebus" Version="8.9.3" />
+    <PackageReference Include="Rebus.RabbitMq" Version="10.1.1" />
+    <PackageReference Include="Rebus.ServiceProvider" Version="10.7.2" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.1.2" />
+    <PackageReference Include="MongoDB.Driver" Version="3.11.1" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BuildingBlocks\BuildingBlocks.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Both grants below are justified against CONVENTIONS.md "Reaching an internal from a
+         test" (GL-69), which asks each to name why the two routes ahead of it were unavailable.
+
+         The correlation-id and pending-reply pipeline steps are internal implementation detail,
+         and the unit tests exercise Process() directly rather than through a live Rebus pipeline.
+         Route 1, extract a public framework-free type, does not apply: a step's parameters ARE
+         Rebus types (IncomingStepContext/OutgoingStepContext), so there is no algorithm here to
+         separate from its driver — the step is the driver. Route 2, resolve through the
+         composition root, does not reach them either: the *PipelineConfigurationExtensions
+         construct each step with `new` and inject it into Rebus's pipeline directly; no step is
+         ever registered in the service collection, so there is nothing to GetRequiredService. -->
+    <InternalsVisibleTo Include="BuildingBlocks.UnitTests" />
+    <!-- GL-57: the request/reply bridge's Testcontainers-backed suite needs direct access to
+         PendingRequestRegistry (to assert it drains to zero) and PendingRequest (to register a
+         waiter under an explicit, known request id for the message-id/in-reply-to wire test) —
+         neither is reachable through IRequestReplyBridge's public surface, which never exposes
+         the request id it generates internally, so route 2 is out.
+         Route 1 is the interesting one here, because unlike the steps above these two types ARE
+         BCL-only (a ConcurrentDictionary and a TaskCompletionSource) and so could be made public
+         the way GL-79 made BoundedCasRetry public. They are deliberately not: BoundedCasRetry is
+         meant to be called from other assemblies by design, which is what "genuinely public"
+         means, whereas the registry is the private rendezvous between RequestReplyBridge and
+         PendingReplyIncomingStep and has exactly two callers, both in this assembly. Publishing
+         it to buy a test would widen the bridge's contract to keep a secret it has no reason to
+         share. -->
+    <InternalsVisibleTo Include="BuildingBlocks.IntegrationTests" />
+  </ItemGroup>
+
+</Project>
