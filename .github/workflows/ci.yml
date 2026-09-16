@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# GL-30: build + unit test only. There is nowhere to publish to (ARCHITECTURE.md "Packaging:
+# local feed") — packing to the local folder feed is a local developer/CI-of-a-consumer action,
+# never a step here.
+#
+# This repo is the ONE place in the seven that needs none of the local-feed machinery: it is the
+# producer of BuildingBlocks / BuildingBlocks.Infrastructure / BuildingBlocks.Testing, and
+# CONVENTIONS.md "Project reference graph" keeps it BCL-only otherwise — nothing in this repo's
+# own PackageReference list is a GiftList id (`grep -rn "PackageReference" **/*.csproj` has no
+# BuildingBlocks.*/*.Contracts entries). nuget.config's local-feed source is declared here so the
+# five *.Contracts/BuildingBlocks.* patterns exist somewhere consistent across repos, but NuGet
+# only ever consults a mapped source when a package matching its pattern is actually restored —
+# it is never touched by a `dotnet restore` of this solution, verified empirically while writing
+# this workflow (restoring with `local-feed` pointed at a directory that does not exist at all
+# still succeeds, because no id in this closure maps to it).
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore BuildingBlocks.sln
+
+      - name: Build
+        run: dotnet build BuildingBlocks.sln --no-restore -c Release
+
+      # Only *.UnitTests runs here. *.IntegrationTests is built above (proving it compiles) but
+      # never executed: it spins up real Mongo/RabbitMQ via Testcontainers
+      # (CONVENTIONS.md "Testing"), and a GitHub-hosted runner should not be asked to start those
+      # on every push — that is what a Testcontainers-backed suite is for locally and would be
+      # for a dedicated integration stage, not this one. Naming the exact project (not the
+      # solution, not a --filter over it) is what actually guarantees Testcontainers never starts
+      # here: nothing in this command can reach BuildingBlocks.IntegrationTests.csproj.
+      - name: Unit tests
+        run: >
+          dotnet test tests/BuildingBlocks.UnitTests/BuildingBlocks.UnitTests.csproj
+          --no-build -c Release --logger "console;verbosity=normal"
