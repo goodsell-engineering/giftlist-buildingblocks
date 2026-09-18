@@ -11,6 +11,11 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.0" />
+    <!-- GL-37: LogCaptureTests calls the ILogger extension methods (LogInformation etc.)
+         directly — declared explicitly rather than relying on the transitive pull through
+         BuildingBlocks.Testing's own ProjectReference, matching this repo's precedent
+         (BuildingBlocks.IntegrationTests.csproj's own comment on RabbitMQ.Client). -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,5 +25,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\BuildingBlocks\BuildingBlocks.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks.Infrastructure\BuildingBlocks.Infrastructure.csproj" />
+    <!-- GL-37: LogCaptureTests pins the shared LogCapture directly, gap-filling coverage
+         BuildingBlocks.IntegrationTests' QueueCleanupTests-style Testcontainers suite would be
+         overkill for — LogCapture touches no infrastructure at all. -->
+    <ProjectReference Include="..\..\src\BuildingBlocks.Testing\BuildingBlocks.Testing.csproj" />
   </ItemGroup>
 </Project>
