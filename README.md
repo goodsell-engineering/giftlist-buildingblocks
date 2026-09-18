@@ -7,10 +7,12 @@ every service repo as a NuGet package.
 |---|---|
 | `BuildingBlocks` | `Result<T>`, `Error`, `ErrorKind`, the transport mapping table. **BCL-only** — no NuGet dependency at all, asserted on the restored package closure. |
 | `BuildingBlocks.Infrastructure` | Rebus configuration and pipeline steps, the request/reply registry, correlation-ID steps, Mongo conventions, health-check helpers, `BoundedCasRetry`. Only `Infrastructure` and `Host` may reference it. |
-| `BuildingBlocks.Testing` | Shared test-support helpers for every service's `IntegrationTests`. Test support, not production code (CONVENTIONS.md "Testing"). |
+| `BuildingBlocks.Testing` | Shared test-support helpers for every service's `IntegrationTests`: `QueueCleanup`, `ReliableReadiness`, `LogCapture` (GL-37). Test support, not production code (CONVENTIONS.md "Testing"). |
 
-All three are at `0.1.0` and all three are packable — GL-75 flagged that the packaging story had
-to cover the two beyond `*.Contracts`, and it does.
+`BuildingBlocks` and `BuildingBlocks.Infrastructure` are at `0.1.0`; `BuildingBlocks.Testing` is
+at `0.2.0` (GL-37 added `LogCapture`, additive only — nothing already shipped changed shape). All
+three are packable — GL-75 flagged that the packaging story had to cover the two beyond
+`*.Contracts`, and it does.
 
 ```
 dotnet build BuildingBlocks.sln

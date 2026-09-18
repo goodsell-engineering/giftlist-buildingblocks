@@ -18,10 +18,14 @@
        silently restoring a stranger's assembly. 0.1.0 exists on neither id upstream. The real
        fix is packageSourceMapping in each repo's nuget.config, which is GL-26's file — see this
        repo's README. -->
+  <!-- GL-37: bumped 0.1.0 -> 0.2.0 (additive minor — new public LogCapture, nothing removed or
+       changed shape) for the same reason 0.1.0 itself was chosen over 1.0.0 above: this package
+       has no independent versioning discipline test yet (GL-27), so the rule is just "additive
+       change, minor bump, never touch an already-shipped 0.1.0 API". -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>BuildingBlocks.Testing</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>goodsell-engineering</Authors>
     <Description>GiftList shared test-support helpers for every service's IntegrationTests suite. Not production code (CONVENTIONS.md "Testing").</Description>
   </PropertyGroup>
@@ -38,6 +42,10 @@
     <PackageReference Include="Testcontainers" Version="4.14.0" />
     <PackageReference Include="Testcontainers.MongoDb" Version="4.14.0" />
     <PackageReference Include="Testcontainers.RabbitMq" Version="4.14.0" />
+    <!-- GL-37: LogCapture is an ILoggerProvider; Abstractions is the whole surface it needs
+         (ILogger, ILoggerProvider, LogLevel, EventId) — not the concrete Microsoft.Extensions.Logging
+         package, which would pull in a logging pipeline implementation this project never runs. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
   </ItemGroup>
 
 </Project>
