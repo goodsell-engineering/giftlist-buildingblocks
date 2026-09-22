@@ -43,7 +43,7 @@ public sealed class RetryPolicyTests(RabbitMqFixture rabbitMq)
     }
 
     [Fact]
-    public async Task Handle_ShouldLandInTheServiceErrorQueue_WithDeliveryCountAtTheCeiling_WhenTheHandlerNeverSucceeds()
+    public async Task Handle_ShouldLandInTheServiceErrorQueue_WithEveryAttemptRecorded_WhenTheHandlerNeverSucceeds()
     {
         // Arrange
         var attempts = new AttemptTracker();
@@ -60,21 +60,31 @@ public sealed class RetryPolicyTests(RabbitMqFixture rabbitMq)
         var deadLettered = await PollForMessageAsync(errorQueueName, TimeSpan.FromSeconds(20));
 
         // Assert — the ceiling was actually spent, not skipped past (which is what the fail-fast
-        // path below is for), and the message still names where it came from.
+        // path below is for), and the message still names where it came from. There is no
+        // rbs2-delivery-count header to read here: that header is only ever read by Rebus's
+        // DefaultRetryStep (never written by it), for transports that count deliveries natively;
+        // RabbitMQ's transport does not, so it is simply absent on this broker. The number of
+        // attempts actually spent is provable a different way instead: DefaultRetryStep's own
+        // GetAggregateException (decompiled from Rebus.dll) formats the exhausted-ceiling
+        // exception's Message as "{n} unhandled exceptions", where {n} is
+        // errorTracker.GetExceptions(...).Count — one entry per RegisterError call, i.e. one per
+        // failed attempt — and DeadletterQueueErrorHandler writes that Message straight into
+        // rbs2-error-details. So the header text itself names the attempt count, independent of
+        // this test's own in-process counter above.
         Assert.NotNull(deadLettered);
         Assert.Equal(RebusConfigurationExtensions.MaxDeliveryAttempts, attempts.Count);
-        Assert.Equal(
-            RebusConfigurationExtensions.MaxDeliveryAttempts.ToString(),
-            HeaderValue(deadLettered, "rbs2-delivery-count"));
         Assert.Equal(responder.InputQueueName, HeaderValue(deadLettered, "rbs2-source-queue"));
-        Assert.Contains("deliberately never succeeds", HeaderValue(deadLettered, "rbs2-error-details"));
+        var errorDetails = HeaderValue(deadLettered, "rbs2-error-details");
+        Assert.Contains($"{RebusConfigurationExtensions.MaxDeliveryAttempts} unhandled exceptions", errorDetails);
+        Assert.Contains("deliberately never succeeds", errorDetails);
     }
 
     [Fact]
     public async Task Handle_ShouldFailFastToTheServiceErrorQueue_WithoutExhaustingRetries_WhenTheMessageBodyCannotBeDeserialized()
     {
-        // Arrange — no handler is registered at all: FailFastOn<JsonException> means this never
-        // gets far enough to need one. The body is published directly against the broker,
+        // Arrange — no handler is registered at all: RebusConfigurationExtensions'
+        // FailFastOn<FormatException> classification means this never gets far enough to need
+        // one. The body is published directly against the broker,
         // bypassing Rebus's own serializer entirely, which is the only way to get genuinely
         // malformed bytes onto the wire (Rebus's own Send would just fail to serialize a valid
         // .NET object in the first place).
@@ -86,10 +96,21 @@ public sealed class RetryPolicyTests(RabbitMqFixture rabbitMq)
         await PublishMalformedMessageAsync(responder.InputQueueName, messageTypeHeader);
         var deadLettered = await PollForMessageAsync(errorQueueName, TimeSpan.FromSeconds(20));
 
-        // Assert — delivery count of 1 is the proof this skipped the retry ceiling rather than
-        // merely reaching the same place the slow way; the test above already covers that path.
+        // Assert — proof this took the fail-fast branch rather than merely reaching the same
+        // queue the slow way (the test above already covers that path): decompiling
+        // DefaultRetryStep.HandleException shows FailFastOn routes through a *different*
+        // aggregate-exception call than the ceiling path — a freshly built one-element exception
+        // list, never errorTracker.GetExceptions(...) (which would hold every attempt recorded
+        // so far). That single-element aggregate's Message is always "1 unhandled exceptions",
+        // regardless of MaxDeliveryAttempts, so it is a direct, code-path-specific proof rather
+        // than an inferred one. Mutation-tested: with the FailFastOn<FormatException> call
+        // commented out of RebusConfigurationExtensions, the same malformed body is retried as
+        // an ordinary exception, spends the full ceiling, and this becomes "5 unhandled
+        // exceptions" — this assertion goes red exactly as it should (see the PR description for
+        // the run that proved it).
         Assert.NotNull(deadLettered);
-        Assert.Equal("1", HeaderValue(deadLettered, "rbs2-delivery-count"));
+        var errorDetails = HeaderValue(deadLettered, "rbs2-error-details");
+        Assert.Contains("1 unhandled exceptions", errorDetails);
     }
 
     /// <summary>
@@ -159,15 +180,27 @@ public sealed class RetryPolicyTests(RabbitMqFixture rabbitMq)
         return null;
     }
 
+    /// <summary>
+    /// A missing header used to read back as an empty string (<c>Headers?[key]</c> under a
+    /// null-conditional, falling through the <c>null</c> arm of the switch below) — which is
+    /// exactly what let <c>rbs2-delivery-count</c> silently compare against <c>""</c> instead of
+    /// failing loudly. An absent header is now a distinct, clearly-named failure instead.
+    /// </summary>
     private static string HeaderValue(BasicGetResult message, string headerKey)
     {
-        var value = message.BasicProperties.Headers?[headerKey];
-        return value switch
+        var headers = message.BasicProperties.Headers;
+        if (headers is not null && headers.TryGetValue(headerKey, out var value))
         {
-            byte[] bytes => Encoding.UTF8.GetString(bytes),
-            null => string.Empty,
-            _ => value.ToString() ?? string.Empty,
-        };
+            return value switch
+            {
+                byte[] bytes => Encoding.UTF8.GetString(bytes),
+                null => string.Empty,
+                _ => value.ToString() ?? string.Empty,
+            };
+        }
+
+        throw new InvalidOperationException(
+            $"Expected header '{headerKey}' on the dead-lettered message, but it was not present.");
     }
 
     /// <summary>Counts attempts and signals the one that is allowed to succeed.</summary>

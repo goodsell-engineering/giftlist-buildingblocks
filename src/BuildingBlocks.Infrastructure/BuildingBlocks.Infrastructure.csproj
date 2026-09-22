@@ -36,12 +36,14 @@
     <PackageReference Include="Rebus.ServiceProvider" Version="10.7.2" />
     <PackageReference Include="RabbitMQ.Client" Version="7.1.2" />
     <!-- GL-43: RebusConfigurationExtensions classifies a deserialization failure as poison via
-         FailFastOn<JsonException>, so this project's own source now names a Newtonsoft.Json type
-         directly. Already pulled in transitively through Rebus's own serializer, but declared
-         explicitly here rather than relied on as a phantom dependency — a type this code
-         references by name belongs in this file, not just in whatever Rebus happens to restore
-         underneath it. -->
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+         FailFastOn<FormatException>(e => e.InnerException is System.Text.Json.JsonException).
+         System.Text.Json ships in the shared framework (net10.0), not as a separate package —
+         no PackageReference needed for it, unlike the Newtonsoft.Json-based classification this
+         started out with: Rebus 8's actual default serializer is
+         Rebus.Serialization.Json.SystemTextJsonSerializer, not the Newtonsoft.Json-based
+         Rebus.Serialization.Json.JsonSerializer also present in Rebus.dll, so a
+         Newtonsoft.Json.JsonException check silently never matched (caught by RetryPolicyTests
+         against a real broker, not by any unit test or by reading Rebus's source alone). -->
     <PackageReference Include="MongoDB.Driver" Version="3.11.1" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />

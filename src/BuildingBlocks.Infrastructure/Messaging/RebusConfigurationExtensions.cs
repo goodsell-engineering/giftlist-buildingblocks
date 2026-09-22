@@ -1,10 +1,10 @@
 using System.Globalization;
+using System.Text.Json;
 using BuildingBlocks.Messaging.CorrelationId;
 using BuildingBlocks.Messaging.RequestReply;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Newtonsoft.Json;
 using Rebus.Config;
 using Rebus.Retry.FailFast;
 using Rebus.Retry.Simple;
@@ -46,13 +46,27 @@ namespace BuildingBlocks.Messaging;
 /// <see cref="MaxDeliveryAttempts"/> times (Mongo hiccups, a momentarily-unreachable dependency,
 /// a lost compare-and-set race under load — CONVENTIONS.md "Messaging" already assumes these are
 /// ordinary and survivable) before landing in the error queue. The one exception classified as
-/// poison up front, via <c>FailFastOn</c>, is <see cref="JsonException"/> — a message whose body
-/// cannot be deserialized will fail the exact same way on every redelivery, so retrying it five
-/// times only delays the operator seeing it. Nothing else is fast-failed: a handler bug (e.g. an
-/// unhandled <see cref="InvalidOperationException"/>) is not distinguishable from a transient one
-/// by type alone, and idempotent handlers make the extra attempts harmless, so the safer default
-/// is to let the uniform retry ceiling above catch it rather than guess wrong and skip retries a
-/// blip would have survived.
+/// poison up front, via <c>FailFastOn</c>, is a message whose body cannot be deserialized — it
+/// will fail the exact same way on every redelivery, so retrying it five times only delays the
+/// operator seeing it. The check is <c>FailFastOn&lt;FormatException&gt;(e =&gt;
+/// e.InnerException is System.Text.Json.JsonException)</c>, not a bare
+/// <see cref="JsonException"/> check: decompiling Rebus 8's own default serializer
+/// (<c>Rebus.Serialization.Json.SystemTextJsonSerializer</c> — the one actually wired up; a
+/// second, Newtonsoft.Json-based <c>Rebus.Serialization.Json.JsonSerializer</c> also exists in
+/// Rebus.dll but is not the default, and this project got that wrong once already, see GL-43's
+/// PR history) shows every exception <c>System.Text.Json.JsonSerializer.Deserialize</c> throws is
+/// caught and re-thrown wrapped in a plain <see cref="FormatException"/>, so the raw
+/// <see cref="JsonException"/> never reaches this pipeline step at all — matching on it directly
+/// would silently never fire. Matching on <see cref="FormatException"/> alone would over-match
+/// instead: that type is also ordinary .NET (<c>decimal.Parse</c>, <c>DateTime.Parse</c>, ...),
+/// so a handler's own unrelated <see cref="FormatException"/> would be wrongly fast-failed too,
+/// skipping retries a real transient cause of it might have survived. Checking that the inner
+/// exception is specifically a <see cref="JsonException"/> is what narrows this back down to "the
+/// message body itself did not parse". Nothing else is fast-failed: a handler bug (e.g. an unhandled
+/// <see cref="InvalidOperationException"/>) is not distinguishable from a transient one by type
+/// alone, and idempotent handlers make the extra attempts harmless, so the safer default is to let
+/// the uniform retry ceiling above catch it rather than guess wrong and skip retries a blip would
+/// have survived.
 /// </description>
 /// </item>
 /// <item>
@@ -171,8 +185,10 @@ public static class RebusConfigurationExtensions
                         secondLevelRetriesEnabled: false);
                     // A malformed body fails deserialization identically on every redelivery, so
                     // there is nothing to gain from spending the full retry budget on it — see
-                    // this class's own summary ("Transient vs. poison").
-                    o.FailFastOn<JsonException>(_ => true);
+                    // this class's own summary ("Transient vs. poison") for why this checks
+                    // FormatException.InnerException rather than JsonException directly, and why
+                    // it doesn't match every FormatException.
+                    o.FailFastOn<FormatException>(exception => exception.InnerException is JsonException);
                 });
 
             return configure is null ? configurer : configure(configurer, serviceProvider);
