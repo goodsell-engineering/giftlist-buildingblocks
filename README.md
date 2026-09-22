@@ -9,12 +9,14 @@ every service repo as a NuGet package.
 | `BuildingBlocks.Infrastructure` | Rebus configuration and pipeline steps (including the explicit retry/error-queue policy — GL-43, see `RebusConfigurationExtensions`'s own XML docs), the request/reply registry, correlation-ID steps, Mongo conventions, health-check helpers, `BoundedCasRetry`. Only `Infrastructure` and `Host` may reference it. |
 | `BuildingBlocks.Testing` | Shared test-support helpers for every service's `IntegrationTests`: `QueueCleanup`, `ReliableReadiness`, `LogCapture` (GL-37). Test support, not production code (CONVENTIONS.md "Testing"). |
 
-`BuildingBlocks` is at `0.1.0`; `BuildingBlocks.Infrastructure` is at `0.2.0` (GL-43 made the
+`BuildingBlocks` is at `0.1.0`; `BuildingBlocks.Infrastructure` is at `0.2.1` (GL-43 made the
 retry/error-queue policy explicit — additive to the public surface, but every host now gets a
 per-service error queue and a fixed five-attempt ceiling it did not choose before, which is why
-this is a minor rather than a patch); `BuildingBlocks.Testing` is at `0.2.0` (GL-37 added
-`LogCapture`, additive only — nothing already shipped changed shape). All three are packable —
-GL-75 flagged that the packaging story had to cover the two beyond `*.Contracts`, and it does.
+0.2.0 was a minor rather than a patch; 0.2.1 fixed the poison classification itself, which checked
+the wrong exception type in 0.2.0 and never actually fired); `BuildingBlocks.Testing` is at `0.2.0`
+(GL-37 added `LogCapture`, additive only — nothing already shipped changed shape). All three are
+packable — GL-75 flagged that the packaging story had to cover the two beyond `*.Contracts`, and it
+does.
 
 ```
 dotnet build BuildingBlocks.sln

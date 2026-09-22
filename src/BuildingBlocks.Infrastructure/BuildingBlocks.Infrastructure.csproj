@@ -21,11 +21,15 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>BuildingBlocks.Infrastructure</PackageId>
-    <!-- GL-43: bumped from 0.1.0 — RebusConfigurationExtensions gained an explicit
+    <!-- GL-43: bumped from 0.1.0 to 0.2.0 — RebusConfigurationExtensions gained an explicit
          retry/error-queue policy (MaxDeliveryAttempts, ErrorQueueName), additive to the public
          surface but a real behaviour change for every host that already consumed it, hence minor
-         rather than patch. -->
-    <Version>0.2.0</Version>
+         rather than patch. Bumped again to 0.2.1: 0.2.0 was already packed into local-feed when a
+         real bug was found in it (the poison classification checked the wrong exception type and
+         never actually fired — see RebusConfigurationExtensions' own doc comment). pack-all.sh's
+         own guard is explicit that the fix for changed content at an already-packed version is
+         always a version bump, never deleting and re-packing the artifact in place. -->
+    <Version>0.2.1</Version>
     <Authors>goodsell-engineering</Authors>
     <Description>GiftList shared infrastructure: Rebus setup and pipeline steps, the request/reply registry, Mongo conventions, health-check helpers.</Description>
   </PropertyGroup>
