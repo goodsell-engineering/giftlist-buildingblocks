@@ -21,7 +21,11 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>BuildingBlocks.Infrastructure</PackageId>
-    <Version>0.1.0</Version>
+    <!-- GL-43: bumped from 0.1.0 — RebusConfigurationExtensions gained an explicit
+         retry/error-queue policy (MaxDeliveryAttempts, ErrorQueueName), additive to the public
+         surface but a real behaviour change for every host that already consumed it, hence minor
+         rather than patch. -->
+    <Version>0.2.0</Version>
     <Authors>goodsell-engineering</Authors>
     <Description>GiftList shared infrastructure: Rebus setup and pipeline steps, the request/reply registry, Mongo conventions, health-check helpers.</Description>
   </PropertyGroup>
@@ -31,6 +35,13 @@
     <PackageReference Include="Rebus.RabbitMq" Version="10.1.1" />
     <PackageReference Include="Rebus.ServiceProvider" Version="10.7.2" />
     <PackageReference Include="RabbitMQ.Client" Version="7.1.2" />
+    <!-- GL-43: RebusConfigurationExtensions classifies a deserialization failure as poison via
+         FailFastOn<JsonException>, so this project's own source now names a Newtonsoft.Json type
+         directly. Already pulled in transitively through Rebus's own serializer, but declared
+         explicitly here rather than relied on as a phantom dependency — a type this code
+         references by name belongs in this file, not just in whatever Rebus happens to restore
+         underneath it. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="MongoDB.Driver" Version="3.11.1" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />

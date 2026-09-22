@@ -129,4 +129,35 @@ public sealed class RebusConfigurationExtensionsTests
         // Assert
         Assert.Null(exception);
     }
+
+    [Theory]
+    [InlineData("identity", "identity.error")]
+    [InlineData("giftlist", "giftlist.error")]
+    [InlineData("reservation", "reservation.error")]
+    [InlineData("gateway", "gateway.error")]
+    public void ErrorQueueName_ShouldAppendAnErrorSuffix_ToTheInputQueueName(string inputQueueName, string expected)
+    {
+        // Arrange — GL-43: pins the per-service naming (CONVENTIONS.md "Persistence" fixes these
+        // four as the services' own singular queue names) against the exact literal an operator
+        // would go looking for in the RabbitMQ management UI.
+
+        // Act
+        var errorQueueName = RebusConfigurationExtensions.ErrorQueueName(inputQueueName);
+
+        // Assert
+        Assert.Equal(expected, errorQueueName);
+    }
+
+    [Fact]
+    public void MaxDeliveryAttempts_ShouldBeFive()
+    {
+        // Arrange — GL-43: pins the chosen attempt count itself, not just that some value exists,
+        // so a change to it is a deliberate edit of this test rather than a silent drift.
+
+        // Act
+        var maxDeliveryAttempts = RebusConfigurationExtensions.MaxDeliveryAttempts;
+
+        // Assert
+        Assert.Equal(5, maxDeliveryAttempts);
+    }
 }
