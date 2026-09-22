@@ -21,7 +21,15 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>BuildingBlocks.Infrastructure</PackageId>
-    <Version>0.1.0</Version>
+    <!-- GL-43: bumped from 0.1.0 to 0.2.0 — RebusConfigurationExtensions gained an explicit
+         retry/error-queue policy (MaxDeliveryAttempts, ErrorQueueName), additive to the public
+         surface but a real behaviour change for every host that already consumed it, hence minor
+         rather than patch. Bumped again to 0.2.1: 0.2.0 was already packed into local-feed when a
+         real bug was found in it (the poison classification checked the wrong exception type and
+         never actually fired — see RebusConfigurationExtensions' own doc comment). pack-all.sh's
+         own guard is explicit that the fix for changed content at an already-packed version is
+         always a version bump, never deleting and re-packing the artifact in place. -->
+    <Version>0.2.1</Version>
     <Authors>goodsell-engineering</Authors>
     <Description>GiftList shared infrastructure: Rebus setup and pipeline steps, the request/reply registry, Mongo conventions, health-check helpers.</Description>
   </PropertyGroup>
@@ -31,6 +39,15 @@
     <PackageReference Include="Rebus.RabbitMq" Version="10.1.1" />
     <PackageReference Include="Rebus.ServiceProvider" Version="10.7.2" />
     <PackageReference Include="RabbitMQ.Client" Version="7.1.2" />
+    <!-- GL-43: RebusConfigurationExtensions classifies a deserialization failure as poison via
+         FailFastOn<FormatException>(e => e.InnerException is System.Text.Json.JsonException).
+         System.Text.Json ships in the shared framework (net10.0), not as a separate package —
+         no PackageReference needed for it, unlike the Newtonsoft.Json-based classification this
+         started out with: Rebus 8's actual default serializer is
+         Rebus.Serialization.Json.SystemTextJsonSerializer, not the Newtonsoft.Json-based
+         Rebus.Serialization.Json.JsonSerializer also present in Rebus.dll, so a
+         Newtonsoft.Json.JsonException check silently never matched (caught by RetryPolicyTests
+         against a real broker, not by any unit test or by reading Rebus's source alone). -->
     <PackageReference Include="MongoDB.Driver" Version="3.11.1" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
