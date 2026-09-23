@@ -28,8 +28,13 @@
          real bug was found in it (the poison classification checked the wrong exception type and
          never actually fired — see RebusConfigurationExtensions' own doc comment). pack-all.sh's
          own guard is explicit that the fix for changed content at an already-packed version is
-         always a version bump, never deleting and re-packing the artifact in place. -->
-    <Version>0.2.1</Version>
+         always a version bump, never deleting and re-packing the artifact in place.
+
+         GL-45: bumped 0.2.1 -> 0.3.0 — CorrelationIdIncomingStep now also pushes a logger scope
+         and writes a log line (a real behaviour change for every host, same reasoning as the
+         0.1.0 -> 0.2.0 bump above), plus a new public AddBuildingBlocksLogging entry point. Both
+         additive to the public surface; nothing already shipped changed shape, hence minor. -->
+    <Version>0.3.0</Version>
     <Authors>goodsell-engineering</Authors>
     <Description>GiftList shared infrastructure: Rebus setup and pipeline steps, the request/reply registry, Mongo conventions, health-check helpers.</Description>
   </PropertyGroup>
@@ -52,6 +57,20 @@
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+    <!-- GL-45: CorrelationIdIncomingStep pushes an ILogger scope and logs a line naming the
+         correlation id — Abstractions is the whole surface it needs (ILogger, ILogger<T>,
+         BeginScope), the same reasoning BuildingBlocks.Testing's own LogCapture PackageReference
+         gives for taking Abstractions rather than the concrete Microsoft.Extensions.Logging
+         package. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    <!-- GL-45: AddBuildingBlocksLogging configures SimpleConsoleFormatterOptions so a Host's
+         already-registered console provider renders the scopes CorrelationIdLogging.BeginScope
+         pushes — this is the concrete Console package (not just Abstractions above), since
+         SimpleConsoleFormatterOptions is an implementation type, not part of the logging
+         abstraction every service already gets for free from Microsoft.NET.Sdk.Web's shared
+         framework. This project targets plain Microsoft.NET.Sdk, so it needs the package
+         reference explicitly rather than inheriting it the way a Host project would. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>
