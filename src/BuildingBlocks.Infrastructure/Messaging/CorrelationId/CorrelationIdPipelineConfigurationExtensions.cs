@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Rebus.Config;
 using Rebus.Pipeline;
 using Rebus.Pipeline.Receive;
@@ -14,15 +15,18 @@ internal static class CorrelationIdPipelineConfigurationExtensions
     /// </summary>
     public static void EnableCorrelationIdPropagation(
         this OptionsConfigurer configurer,
-        ICorrelationIdAccessor accessor)
+        ICorrelationIdAccessor accessor,
+        ILoggerFactory loggerFactory)
     {
+        var incomingStepLogger = loggerFactory.CreateLogger<CorrelationIdIncomingStep>();
+
         configurer.Decorate<IPipeline>(context =>
         {
             var pipeline = context.Get<IPipeline>();
 
             return new PipelineStepInjector(pipeline)
                 .OnReceive(
-                    new CorrelationIdIncomingStep(accessor),
+                    new CorrelationIdIncomingStep(accessor, incomingStepLogger),
                     PipelineRelativePosition.Before,
                     typeof(DeserializeIncomingMessageStep))
                 .OnSend(

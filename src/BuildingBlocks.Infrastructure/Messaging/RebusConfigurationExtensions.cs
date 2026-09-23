@@ -5,6 +5,7 @@ using BuildingBlocks.Messaging.RequestReply;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Rebus.Config;
 using Rebus.Retry.FailFast;
 using Rebus.Retry.Simple;
@@ -171,13 +172,14 @@ public static class RebusConfigurationExtensions
         services.AddRebus((rebus, serviceProvider) =>
         {
             var accessor = serviceProvider.GetRequiredService<ICorrelationIdAccessor>();
+            var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
             var pendingRequests = serviceProvider.GetRequiredService<PendingRequestRegistry>();
 
             var configurer = rebus
                 .Transport(t => t.UseRabbitMq(connectionString, inputQueueName))
                 .Options(o =>
                 {
-                    o.EnableCorrelationIdPropagation(accessor);
+                    o.EnableCorrelationIdPropagation(accessor, loggerFactory);
                     o.EnableRequestReplyBridge(pendingRequests);
                     o.RetryStrategy(
                         errorQueueName: ErrorQueueName(inputQueueName),
